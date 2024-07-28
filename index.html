@@ -1,54 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Thulane Sigasa | SnakeBits</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thulane Sigasa | Snakes</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="game-container">
-      <div id="game-title">
-          <svg viewBox="0 0 400 60">
-              <defs>
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop id="gradient-start" offset="0%" />
-                      <stop id="gradient-end" offset="100%" />
-                  </linearGradient>
-              </defs>
-              <text fill="url(#gradient)" x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">
-                  <tspan class="letter" style="animation-delay: 0.0s;">P</tspan>
-                  <tspan class="letter" style="animation-delay: 0.1s;">H</tspan>
-                  <tspan class="letter" style="animation-delay: 0.2s;">A</tspan>
-                  <tspan class="letter" style="animation-delay: 0.3s;">R</tspan>
-                  <tspan class="letter" style="animation-delay: 0.4s;">E</tspan>
-                  <tspan class="letter" style="animation-delay: 0.5s;">Z</tspan>
-                  <tspan class="letter" style="animation-delay: 0.6s;">-</tspan>
-                  </svg>
-              <br>
-              <svg viewBox="0 0 400 60">
-                <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop id="gradient-start" offset="0%" />
-                        <stop id="gradient-end" offset="100%" />
-                    </linearGradient>
-                </defs>
-                <text fill="url(#gradient)" x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">
-                  <tspan class="letter" style="animation-delay: 0.7s;">S</tspan>
-                  <tspan class="letter" style="animation-delay: 0.8s;">N</tspan>
-                  <tspan class="letter" style="animation-delay: 0.9s;">A</tspan>
-                  <tspan class="letter" style="animation-delay: 1.0s;">K</tspan>
-                  <tspan class="letter" style="animation-delay: 1.2s;">E</tspan>
-                  <tspan class="letter" style="animation-delay: 1.3s;">B</tspan>
-                  <tspan class="letter" style="animation-delay: 1.4s;">I</tspan>
-                  <tspan class="letter" style="animation-delay: 1.5s;">T</tspan>
-                  <tspan class="letter" style="animation-delay: 1.6s;">S</tspan>
-                </text>
-          </svg>
-      </div>
-      <canvas id="game-board" width="400" height="400"></canvas>
-      <div id="score">Score: 0</div>
-  </div>
-<script src="script.js"></script>
+    <div class="game-container">
+        <h1>Snakes</h1>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="controls">
+            <button id="startButton">Start/New Game</button>
+            <button id="pauseButton">Pause</button>
+            <button id="resetButton">Reset</button>
+        </div>
+        <div class="score">Score: <span id="score">0</span></div>
+        <div class="high-score">High Score: <span id="highScore">0</span></div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>

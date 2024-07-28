@@ -1,271 +1,205 @@
-const canvas = document.getElementById('game-board');
-const ctx = canvas.getContext('2d');
-const scoreElement = document.getElementById('score');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-const gridSize = 20;
-const tileCount = canvas.width / gridSize;
-
-let snake = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 }
-];
-let food = { x: 15, y: 15 };
-let powerup = { x: -1, y: -1, type: '' };
-let dx = 1;
-let dy = 0;
-let score = 0;
-let powerupActive = false;
-let powerupTimer = 0;
+const box = 20;
+let snake = [];
+let food, powerUp, direction, score, highScore;
+let gameInterval;
+let isPaused = false;
 let gameSpeed = 100;
 
-function gameLoop() {
-    clearCanvas();
-    moveSnake();
-    drawSnake();
-    drawFood();
-    drawPowerup();
-    checkCollision();
+document.getElementById("startButton").addEventListener("click", startGame);
+document.getElementById("pauseButton").addEventListener("click", pauseGame);
+document.getElementById("resetButton").addEventListener("click", resetGame);
+document.addEventListener("keydown", directionHandler);
+
+function initializeGame() {
+    snake = [{ x: 9 * box, y: 10 * box }];
+    direction = null;
+    score = 0;
+    highScore = localStorage.getItem("snakeHighScore") || 0;
     updateScore();
-    handlePowerup();
-    setTimeout(gameLoop, gameSpeed);
+    updateHighScore();
+    food = generateRandomPosition();
+    powerUp = {
+        x: Math.floor(Math.random() * 19 + 1) * box,
+        y: Math.floor(Math.random() * 19 + 1) * box,
+        visible: false,
+        duration: 5000,
+        endTime: 0,
+        type: "speed" // or "grow"
+    };
 }
 
-function clearCanvas() {
-    ctx.fillStyle = 'white'; // Grass-like background
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+function startGame() {
+    initializeGame();
+    clearInterval(gameInterval);
+    gameInterval = setInterval(draw, gameSpeed);
+    isPaused = false;
 }
 
-function drawSnake() {
-    // Draw body
-    for (let i = snake.length - 1; i > 0; i--) {
-        const segment = snake[i];
-        const prevSegment = snake[i - 1];
-        const progress = i / snake.length;
-        
-        ctx.fillStyle = powerupActive ? `rgba(255, 215, 0, ${0.5 + progress / 2})` : 
-                         `rgb(${Math.floor(69 + progress * 100)}, ${Math.floor(139 + progress * 50)}, 0)`;
-        
-        ctx.beginPath();
-        ctx.ellipse(
-            segment.x * gridSize + gridSize / 2,
-            segment.y * gridSize + gridSize / 2,
-            gridSize / 2 - 1,
-            gridSize / 2 - 1,
-            Math.atan2(prevSegment.y - segment.y, prevSegment.x - segment.x),
-            0,
-            2 * Math.PI
-        );
-        ctx.fill();
+function pauseGame() {
+    if (isPaused) {
+        gameInterval = setInterval(draw, gameSpeed);
+    } else {
+        clearInterval(gameInterval);
     }
+    isPaused = !isPaused;
+}
 
-    // Draw head
-    const head = snake[0];
-    ctx.fillStyle = powerupActive ? '#ffd700' : '#654321'; // Brown for head
-    ctx.beginPath();
-    ctx.ellipse(
-        head.x * gridSize + gridSize / 2,
-        head.y * gridSize + gridSize / 2,
-        gridSize / 2,
-        gridSize / 2,
-        Math.atan2(dy, dx),
-        0,
-        2 * Math.PI
-    );
-    ctx.fill();
+function resetGame() {
+    clearInterval(gameInterval);
+    initializeGame();
+    draw();
+}
 
-    // Eyes
-    ctx.fillStyle = 'white';
-    let eyeX = head.x * gridSize + gridSize / 2;
-    let eyeY = head.y * gridSize + gridSize / 2;
-    let eyeOffset = 3;
+function directionHandler(event) {
+    const key = event.keyCode;
+    const directions = {
+        37: "LEFT",
+        38: "UP",
+        39: "RIGHT",
+        40: "DOWN"
+    };
     
-    if (dx === 1) eyeX += eyeOffset;
-    if (dx === -1) eyeX -= eyeOffset;
-    if (dy === 1) eyeY += eyeOffset;
-    if (dy === -1) eyeY -= eyeOffset;
-
-    ctx.beginPath();
-    ctx.arc(eyeX - 4, eyeY - 2, 2, 0, 2 * Math.PI);
-    ctx.arc(eyeX + 4, eyeY - 2, 2, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Tongue
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(eyeX, eyeY + 5);
-    ctx.lineTo(eyeX + dx * 7, eyeY + dy * 7);
-    ctx.moveTo(eyeX + dx * 7, eyeY + dy * 7);
-    ctx.lineTo(eyeX + dx * 7 - dy * 3, eyeY + dy * 7 + dx * 3);
-    ctx.moveTo(eyeX + dx * 7, eyeY + dy * 7);
-    ctx.lineTo(eyeX + dx * 7 + dy * 3, eyeY + dy * 7 - dx * 3);
-    ctx.stroke();
+    if (directions[key] && direction !== getOppositeDirection(directions[key])) {
+        direction = directions[key];
+    }
 }
 
-function drawFood() {
-    ctx.fillStyle = 'red';
-    ctx.beginPath();
-    ctx.arc(
-        food.x * gridSize + gridSize / 2,
-        food.y * gridSize + gridSize / 2,
-        gridSize / 2 - 2,
-        0,
-        2 * Math.PI
-    );
-    ctx.fill();
+function getOppositeDirection(dir) {
+    const opposites = {
+        "LEFT": "RIGHT",
+        "RIGHT": "LEFT",
+        "UP": "DOWN",
+        "DOWN": "UP"
+    };
+    return opposites[dir];
 }
 
-function drawPowerup() {
-    if (powerup.x !== -1 && powerup.y !== -1) {
-        ctx.fillStyle = powerup.type === 'speed' ? 'blue' : 
-                        powerup.type === 'double' ? 'green' : 'purple';
+function generateRandomPosition() {
+    let position;
+    do {
+        position = {
+            x: Math.floor(Math.random() * 19 + 1) * box,
+            y: Math.floor(Math.random() * 19 + 1) * box
+        };
+    } while (collision(position, snake));
+    return position;
+}
+
+function collision(pos, array) {
+    return array.some(segment => pos.x === segment.x && pos.y === segment.y);
+}
+
+function updateScore() {
+    document.getElementById("score").innerText = score;
+}
+
+function updateHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("snakeHighScore", highScore);
+    }
+    document.getElementById("highScore").innerText = highScore;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw snake
+    snake.forEach((segment, index) => {
+        ctx.fillStyle = index === 0 ? "#4ecdc4" : "#45b7a7";
+        ctx.fillRect(segment.x, segment.y, box, box);
+        ctx.strokeStyle = "#0f3460";
+        ctx.strokeRect(segment.x, segment.y, box, box);
+    });
+
+    // Draw food
+    ctx.fillStyle = "#e94560";
+    ctx.beginPath();
+    ctx.arc(food.x + box/2, food.y + box/2, box/2, 0, 2*Math.PI);
+    ctx.fill();
+
+    // Draw power-up
+    if (powerUp.visible) {
+        ctx.fillStyle = powerUp.type === "speed" ? "#ffd700" : "#9932cc";
         ctx.beginPath();
-        ctx.arc(
-            powerup.x * gridSize + gridSize / 2,
-            powerup.y * gridSize + gridSize / 2,
-            gridSize / 2 - 2,
-            0,
-            2 * Math.PI
-        );
+        ctx.arc(powerUp.x + box/2, powerUp.y + box/2, box/2, 0, 2*Math.PI);
         ctx.fill();
-
-        // Draw point value
-        ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(
-            powerup.type === 'double' ? '2' : '4',
-            powerup.x * gridSize + gridSize / 2,
-            powerup.y * gridSize + gridSize / 2
-        );
-    }
-}
-
-function moveSnake() {
-    let head = { x: snake[0].x + dx, y: snake[0].y + dy };
-
-    // Make the snake appear from the opposite end if it touches a wall
-    if (head.x < 0) {
-        head.x = tileCount - 1;
-    } else if (head.x >= tileCount) {
-        head.x = 0;
-    }
-    if (head.y < 0) {
-        head.y = tileCount - 1;
-    } else if (head.y >= tileCount) {
-        head.y = 0;
     }
 
-    snake.unshift(head);
-    if (head.x === food.x && head.y === food.y) {
+    let snakeX = snake[0].x;
+    let snakeY = snake[0].y;
+
+    if (direction == "LEFT") snakeX -= box;
+    if (direction == "UP") snakeY -= box;
+    if (direction == "RIGHT") snakeX += box;
+    if (direction == "DOWN") snakeY += box;
+
+    // Allow snake to cross walls
+    if (snakeX < 0) snakeX = canvas.width - box;
+    if (snakeX >= canvas.width) snakeX = 0;
+    if (snakeY < 0) snakeY = canvas.height - box;
+    if (snakeY >= canvas.height) snakeY = 0;
+
+    if (snakeX == food.x && snakeY == food.y) {
         score++;
-        generateFood();
-        if (Math.random() < 0.3) { // 30% chance to spawn a powerup
-            generatePowerup();
+        updateScore();
+        updateHighScore();
+        food = generateRandomPosition();
+
+        // Randomly show a power-up
+        if (Math.random() < 0.2) { // 20% chance to spawn a power-up
+            powerUp.visible = true;
+            powerUp.x = generateRandomPosition().x;
+            powerUp.y = generateRandomPosition().y;
+            powerUp.endTime = Date.now() + powerUp.duration;
+            powerUp.type = Math.random() < 0.5 ? "speed" : "grow";
         }
     } else {
         snake.pop();
     }
-}
 
-function generateFood() {
-    do {
-        food.x = Math.floor(Math.random() * tileCount);
-        food.y = Math.floor(Math.random() * tileCount);
-    } while (snake.some(segment => segment.x === food.x && segment.y === food.y));
-}
-
-function generatePowerup() {
-    do {
-        powerup.x = Math.floor(Math.random() * tileCount);
-        powerup.y = Math.floor(Math.random() * tileCount);
-    } while (snake.some(segment => segment.x === powerup.x && segment.y === powerup.y) || 
-             (powerup.x === food.x && powerup.y === food.y));
-    
-    const rand = Math.random();
-    if (rand < 0.33) {
-        powerup.type = 'speed';
-    } else if (rand < 0.66) {
-        powerup.type = 'double';
-    } else {
-        powerup.type = 'quad';
-    }
-}
-
-function checkCollision() {
-    const head = snake[0];
-    for (let i = 1; i < snake.length; i++) {
-        if (head.x === snake[i].x && head.y === snake[i].y && !powerupActive) {
-            resetGame();
-            return;
+    if (powerUp.visible && snakeX == powerUp.x && snakeY == powerUp.y) {
+        powerUp.visible = false;
+        if (powerUp.type === "speed") {
+            clearInterval(gameInterval);
+            gameSpeed = 50;
+            gameInterval = setInterval(draw, gameSpeed);
+            setTimeout(() => {
+                clearInterval(gameInterval);
+                gameSpeed = 100;
+                gameInterval = setInterval(draw, gameSpeed);
+            }, 5000);
+        } else if (powerUp.type === "grow") {
+            for (let i = 0; i < 3; i++) {
+                snake.push({...snake[snake.length - 1]});
+            }
         }
     }
-    if (head.x === powerup.x && head.y === powerup.y) {
-        activatePowerup();
+
+    if (powerUp.visible && Date.now() > powerUp.endTime) {
+        powerUp.visible = false;
     }
-}
 
-function activatePowerup() {
-    powerupActive = true;
-    powerupTimer = 50; // 5 seconds (50 * 100ms)
-    if (powerup.type === 'speed') {
-        gameSpeed = 50; // Faster game speed
-    } else if (powerup.type === 'double') {
-        score += 2;
-    } else if (powerup.type === 'quad') {
-        score += 4;
+    let newHead = { x: snakeX, y: snakeY };
+
+    if (collision(newHead, snake)) {
+        clearInterval(gameInterval);
+        alert(`Game Over! Your score: ${score}`);
+        resetGame();
+        return;
     }
-    powerup = { x: -1, y: -1, type: '' };
+
+    snake.unshift(newHead);
+
+    // Draw score
+    ctx.fillStyle = "#4ecdc4";
+    ctx.font = "20px Arial";
+    ctx.fillText(`Score: ${score}`, 10, 30);
 }
 
-function handlePowerup() {
-    if (powerupActive) {
-        powerupTimer--;
-        if (powerupTimer <= 0) {
-            powerupActive = false;
-            gameSpeed = 100; // Reset to normal game speed
-        }
-    }
-}
-
-function resetGame() {
-    alert(`Game Over! Your score: ${score}`);
-    snake = [
-        { x: 10, y: 10 },
-        { x: 9, y: 10 },
-        { x: 8, y: 10 }
-    ];
-    food = { x: 15, y: 15 };
-    powerup = { x: -1, y: -1, type: '' };
-    dx = 1;
-    dy = 0;
-    score = 0;
-    powerupActive = false;
-    powerupTimer = 0;
-    gameSpeed = 100;
-}
-
-function updateScore() {
-    scoreElement.textContent = `Score: ${score}`;
-}
-
-document.addEventListener('keydown', (e) => {
-    switch (e.key) {
-        case 'ArrowUp':
-            if (dy === 0) { dx = 0; dy = -1; }
-            break;
-        case 'ArrowDown':
-            if (dy === 0) { dx = 0; dy = 1; }
-            break;
-        case 'ArrowLeft':
-            if (dx === 0) { dx = -1; dy = 0; }
-            break;
-        case 'ArrowRight':
-            if (dx === 0) { dx = 1; dy = 0; }
-            break;
-    }
-});
-
-gameLoop();
+// Initialize the game for the first time
+initializeGame();
+draw();
